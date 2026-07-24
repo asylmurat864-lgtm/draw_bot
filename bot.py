@@ -15,15 +15,13 @@ from aiohttp import web
 import asyncpg
 
 # ============================================
-#  НАСТРОЙКИ (С ЗАЩИТОЙ ОТ ПРОБЕЛОВ!)
+#  НАСТРОЙКИ
 # ============================================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 if not BOT_TOKEN:
     BOT_TOKEN = "8915886468:AAEyfaKl08r3KvHUKrD7Rp-es7PHuXI6OdY"
-# УДАЛЯЕМ ВСЕ ПРОБЕЛЫ ИЗ ТОКЕНА!
 BOT_TOKEN = ''.join(BOT_TOKEN.split())
 
-# ИМЯ БОТА (ДЛЯ ССЫЛОК)
 BOT_USERNAME = "Meegadraw_bot"
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
@@ -36,7 +34,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ============================================
-#  ИНИЦИАЛИЗАЦИЯ
+#  ИНИЦИАЛИЗАЦИЯ (используем MemoryStorage для стабильности)
 # ============================================
 storage = MemoryStorage()
 bot = Bot(token=BOT_TOKEN)
@@ -176,7 +174,6 @@ async def update_message_id(draw_id, message_id):
 # ============================================
 
 def get_join_keyboard(draw_id):
-    """Кнопка с правильной ссылкой на бота"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text="🎯 Участвовать в конкурсе",
@@ -188,6 +185,7 @@ def get_join_keyboard(draw_id):
 #  ОБРАБОТЧИКИ КОМАНД
 # ============================================
 
+# ----- /START -----
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     args = message.text.split()
@@ -206,10 +204,18 @@ async def start_cmd(message: types.Message):
         "👋 Привет! Я бот для конкурсов 😉\n\n"
         "📌 **Создать конкурс:** `/create` в ЛС\n"
         "📌 **Участвовать:** нажми на кнопку под постом\n"
-        "📌 **Завершить:** `/draw` в чате",
+        "📌 **Завершить:** `/draw` в чате\n"
+        "📌 **Сбросить состояние:** `/cancel`",
         parse_mode=ParseMode.MARKDOWN
     )
 
+# ----- /CANCEL (СБРОС СОСТОЯНИЙ) -----
+@dp.message(Command("cancel"))
+async def cancel_cmd(message: types.Message, state: FSMContext):
+    await state.clear()
+    await message.answer("✅ Все состояния сброшены! Можешь начать заново.")
+
+# ----- УЧАСТИЕ -----
 async def handle_join(message: types.Message, draw_id: int):
     user = message.from_user
     
@@ -249,16 +255,17 @@ async def handle_join(message: types.Message, draw_id: int):
             parse_mode=ParseMode.MARKDOWN
         )
 
-# ----- ОСТАЛЬНЫЕ КОМАНДЫ (CREATE, DRAW, DRAWS) -----
+# ----- /CREATE -----
 @dp.message(Command("create"))
 async def create_cmd(message: types.Message, state: FSMContext):
     if message.chat.type != "private":
         await message.answer("⚠️ Пиши /create в ЛС!")
         return
     
+    # Проверяем, есть ли активный конкурс
     active = await get_active_draw_by_creator(message.from_user.id)
     if active:
-        await message.answer("⚠️ У тебя уже есть активный конкурс!")
+        await message.answer("⚠️ У тебя уже есть активный конкурс!\nСначала заверши его командой `/draw`.")
         return
     
     await state.set_state(CreateDraw.waiting_for_title)
@@ -359,6 +366,7 @@ async def process_chat(message: types.Message, state: FSMContext):
         parse_mode=ParseMode.MARKDOWN
     )
 
+# ----- /DRAW -----
 @dp.message(Command("draw"))
 async def draw_cmd(message: types.Message):
     chat_id = message.chat.id
@@ -409,6 +417,7 @@ async def draw_cmd(message: types.Message):
         except:
             pass
 
+# ----- /DRAWS -----
 @dp.message(Command("draws"))
 async def list_draws(message: types.Message):
     draws = await get_all_draws()
@@ -427,7 +436,6 @@ async def list_draws(message: types.Message):
 #  WEBHOOK
 # ============================================
 async def on_startup(app):
-    """Запускается при старте веб-приложения"""
     await init_db()
     await bot.set_webhook(WEBHOOK_URL)
     
@@ -436,12 +444,12 @@ async def on_startup(app):
         BotCommand(command="create", description="Создать конкурс"),
         BotCommand(command="draw", description="Завершить конкурс"),
         BotCommand(command="draws", description="Список конкурсов"),
+        BotCommand(command="cancel", description="Сбросить состояние"),
     ])
     
     logger.info("✅ Бот запущен через Webhook!")
 
 async def on_shutdown(app):
-    """Запускается при остановке"""
     await bot.delete_webhook()
     await bot.session.close()
     logger.info("❌ Бот остановлен")
