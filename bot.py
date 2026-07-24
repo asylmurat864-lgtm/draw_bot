@@ -15,10 +15,20 @@ from aiohttp import web
 import asyncpg
 
 # ============================================
-#  НАСТРОЙКИ (С ЗАЩИТОЙ ОТ ПРОБЕЛОВ!)
+#  НАСТРОЙКИ (С ПРИНУДИТЕЛЬНОЙ ОЧИСТКОЙ!)
 # ============================================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8915886468:AAEyfaKl08r3KvHUKrD7Rp-es7PHuXI6OdY")
-BOT_TOKEN = BOT_TOKEN.strip()  # ← УДАЛЯЕТ ВСЕ ПРОБЕЛЫ!
+# Берём токен из переменной окружения
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+
+# ЕСЛИ ТОКЕН НЕ НАШЁЛСЯ — ИСПОЛЬЗУЕМ ЗАПИСАННЫЙ (НО ТОЖЕ ОЧИЩАЕМ!)
+if not BOT_TOKEN:
+    BOT_TOKEN = "8915886468:AAEyfaKl08r3KvHUKrD7Rp-es7PHuXI6OdY"
+
+# ПРИНУДИТЕЛЬНО УДАЛЯЕМ ВСЕ ПРОБЕЛЫ, ПЕРЕВОДЫ СТРОК, ТАБУЛЯЦИИ!
+BOT_TOKEN = ''.join(BOT_TOKEN.split())  # ← ЭТО УДАЛЯЕТ ЛЮБЫЕ ПРОБЕЛЫ!
+
+# Проверяем токен (для отладки)
+print(f"🤖 Токен: {BOT_TOKEN[:10]}... (длина: {len(BOT_TOKEN)})")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
@@ -170,10 +180,12 @@ async def update_message_id(draw_id, message_id):
 # ============================================
 
 def get_join_keyboard(draw_id):
+    # Берём ID бота из токена (часть до двоеточия)
+    bot_id = BOT_TOKEN.split(':')[0]
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text="🎯 Участвовать в конкурсе",
-            url=f"https://t.me/{BOT_TOKEN.split(':')[0]}?start=join_{draw_id}"
+            url=f"https://t.me/{bot_id}?start=join_{draw_id}"
         )]
     ])
 
