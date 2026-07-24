@@ -6,22 +6,22 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.storage.redis import RedisStorage
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 from aiogram.enums import ParseMode
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
 
 import asyncpg
-import redis.asyncio as redis
 
 # ============================================
-#  НАСТРОЙКИ
+#  НАСТРОЙКИ (С ЗАЩИТОЙ ОТ ПРОБЕЛОВ!)
 # ============================================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8915886468:AAEyfaKl08r3KvHUKrD7Rp-es7PHuXI6OdY")
-DATABASE_URL = os.getenv("DATABASE_URL")
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+BOT_TOKEN = BOT_TOKEN.strip()  # ← УДАЛЯЕТ ВСЕ ПРОБЕЛЫ!
+
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 
 # ============================================
 #  ЛОГИРОВАНИЕ
@@ -32,8 +32,7 @@ logger = logging.getLogger(__name__)
 # ============================================
 #  ИНИЦИАЛИЗАЦИЯ
 # ============================================
-redis_client = redis.from_url(REDIS_URL)
-storage = RedisStorage(redis=redis_client)
+storage = MemoryStorage()
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=storage)
 
@@ -50,7 +49,6 @@ class CreateDraw(StatesGroup):
 #  ПОДКЛЮЧЕНИЕ К POSTGRESQL
 # ============================================
 async def init_db():
-    """Создаёт таблицы в PostgreSQL"""
     conn = await asyncpg.connect(DATABASE_URL)
     await conn.execute("""
         CREATE TABLE IF NOT EXISTS draws (
@@ -79,7 +77,6 @@ async def init_db():
     logger.info("✅ PostgreSQL инициализирован")
 
 async def get_db():
-    """Возвращает подключение к БД"""
     return await asyncpg.connect(DATABASE_URL)
 
 # ============================================
