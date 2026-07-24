@@ -15,20 +15,12 @@ from aiohttp import web
 import asyncpg
 
 # ============================================
-#  НАСТРОЙКИ (С ПРИНУДИТЕЛЬНОЙ ОЧИСТКОЙ!)
+#  НАСТРОЙКИ (С ЗАЩИТОЙ ОТ ПРОБЕЛОВ!)
 # ============================================
-# Берём токен из переменной окружения
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-
-# ЕСЛИ ТОКЕН НЕ НАШЁЛСЯ — ИСПОЛЬЗУЕМ ЗАПИСАННЫЙ (НО ТОЖЕ ОЧИЩАЕМ!)
 if not BOT_TOKEN:
     BOT_TOKEN = "8915886468:AAEyfaKl08r3KvHUKrD7Rp-es7PHuXI6OdY"
-
-# ПРИНУДИТЕЛЬНО УДАЛЯЕМ ВСЕ ПРОБЕЛЫ, ПЕРЕВОДЫ СТРОК, ТАБУЛЯЦИИ!
-BOT_TOKEN = ''.join(BOT_TOKEN.split())  # ← ЭТО УДАЛЯЕТ ЛЮБЫЕ ПРОБЕЛЫ!
-
-# Проверяем токен (для отладки)
-print(f"🤖 Токен: {BOT_TOKEN[:10]}... (длина: {len(BOT_TOKEN)})")
+BOT_TOKEN = ''.join(BOT_TOKEN.split())  # Удаляем все пробелы
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
@@ -180,7 +172,6 @@ async def update_message_id(draw_id, message_id):
 # ============================================
 
 def get_join_keyboard(draw_id):
-    # Берём ID бота из токена (часть до двоеточия)
     bot_id = BOT_TOKEN.split(':')[0]
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
@@ -419,9 +410,10 @@ async def list_draws(message: types.Message):
     await message.answer(text, parse_mode=ParseMode.MARKDOWN)
 
 # ============================================
-#  WEBHOOK
+#  WEBHOOK (ИСПРАВЛЕНО!)
 # ============================================
-async def on_startup():
+async def on_startup(app):
+    """Запускается при старте веб-приложения"""
     await init_db()
     await bot.set_webhook(WEBHOOK_URL)
     
@@ -434,7 +426,8 @@ async def on_startup():
     
     logger.info("✅ Бот запущен через Webhook!")
 
-async def on_shutdown():
+async def on_shutdown(app):
+    """Запускается при остановке"""
     await bot.delete_webhook()
     await bot.session.close()
     logger.info("❌ Бот остановлен")
