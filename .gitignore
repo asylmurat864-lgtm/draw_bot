@@ -1,0 +1,29 @@
+# База данных
+*.db
+*.sqlite
+*.sqlite3
+
+# Виртуальное окружение
+venv/
+.venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Логи
+*.log
+
+# Файлы окружения
+.env
+*.env
